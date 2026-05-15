@@ -3,7 +3,9 @@ import axios from "axios";
 const normalizeApiBaseUrl = (url) => {
   const trimmed = String(url || "").trim().replace(/\/+$/, "");
 
-  if (!trimmed) return "http://127.0.0.1:5000/api";
+  if (!trimmed) {
+    return import.meta.env.PROD ? "/api" : "http://127.0.0.1:5000/api";
+  }
 
   const withoutEndpoint = trimmed.replace(
     /\/(api\/)?(auth\/)?(signup|login|profile|settings|dashboard)$/i,
@@ -25,7 +27,7 @@ export const getApiErrorMessage = (error, fallback = "Request failed. Please try
   }
 
   if (error.code === "ERR_NETWORK") {
-    return `Backend is unreachable at ${API_BASE_URL}. Check VITE_API_URL and backend CORS settings in Vercel.`;
+    return `Backend is unreachable at ${API_BASE_URL}. Set VITE_API_URL in the frontend Vercel project to your backend URL.`;
   }
 
   if (error.message) {
