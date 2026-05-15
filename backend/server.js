@@ -18,7 +18,7 @@ const maskValue = (value) => {
   if (trimmed.length <= 8) return "set, too short";
   return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)} (${trimmed.length} chars)`;
 };
-const allowedOrigins = [
+const configuredOrigins = [
   ...getEnv("CLIENT_URL")
     .split(",")
     .map(normalizeOrigin)
@@ -30,10 +30,20 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ];
-const vercelOriginPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 const isOriginAllowed = (origin) => {
+  if (getEnv("CORS_ALLOW_ALL") === "true") return true;
+
   const normalized = normalizeOrigin(origin);
-  return allowedOrigins.includes(normalized) || vercelOriginPattern.test(normalized);
+  if (!normalized) return true;
+
+  if (configuredOrigins.includes(normalized)) return true;
+
+  try {
+    const hostname = new URL(normalized).hostname;
+    return hostname === "vercel.app" || hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
 };
 
 const dbReady = connectDB().then((connected) => {
@@ -65,7 +75,8 @@ app.get("/health", async (req, res) => {
     env: {
       mongoUriConfigured: hasEnv("MONGO_URI"),
       jwtSecretConfigured: hasEnv("JWT_SECRET"),
-      allowedOrigins,
+      configuredOrigins,
+      corsAllowAll: getEnv("CORS_ALLOW_ALL") === "true",
     },
     ai: {
       provider: getEnv("AI_PROVIDER") || "auto",

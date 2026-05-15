@@ -14,7 +14,7 @@ export const getApiErrorMessage = (error, fallback = "Request failed. Please try
   }
 
   if (error.code === "ERR_NETWORK") {
-    return "Backend is unreachable. Check VITE_API_URL and backend CORS settings in Vercel.";
+    return `Backend is unreachable at ${API_BASE_URL}. Check VITE_API_URL and backend CORS settings in Vercel.`;
   }
 
   if (error.message) {
