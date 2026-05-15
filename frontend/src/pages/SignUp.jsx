@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BrandLogo from "../Components/BrandLogo";
-import { signupUser } from "../Components/services/api";
+import { getApiErrorMessage, signupUser } from "../Components/services/api";
 import pageBg from "../images/chatbot images6.png";
 
 function Signup() {
@@ -39,11 +39,15 @@ function Signup() {
     setMessage("");
 
     try {
-      await signupUser(formData.name, formData.email, formData.password);
-      setMessage("Signup successful. Redirecting to login...");
-      setTimeout(() => navigate("/login"), 900);
+      const res = await signupUser(formData.name, formData.email, formData.password);
+
+      if (res.token) localStorage.setItem("token", res.token);
+      if (res.user) localStorage.setItem("user", JSON.stringify(res.user));
+
+      setMessage("Signup successful. Redirecting to chat...");
+      setTimeout(() => navigate("/"), 700);
     } catch (error) {
-      setMessage(error.response?.data?.message || "Signup failed. Please try again.");
+      setMessage(getApiErrorMessage(error, "Signup failed. Please try again."));
     } finally {
       setLoading(false);
     }

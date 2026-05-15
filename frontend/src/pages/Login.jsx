@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BrandLogo from "../Components/BrandLogo";
-import { loginUser } from "../Components/services/api";
+import { getApiErrorMessage, loginUser } from "../Components/services/api";
 
 function Login() {
   const navigate = useNavigate();
@@ -29,7 +29,7 @@ function Login() {
       setMessage("Login successful. Redirecting to chat...");
       setTimeout(() => navigate("/"), 700);
     } catch (error) {
-      setMessage(error.response?.data?.message || "Invalid credentials. Please check your email and password.");
+      setMessage(getApiErrorMessage(error, "Invalid credentials. Please check your email and password."));
     } finally {
       setLoading(false);
     }

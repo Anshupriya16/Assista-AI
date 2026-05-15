@@ -8,6 +8,22 @@ const API = axios.create({
   baseURL: API_BASE_URL,
 });
 
+export const getApiErrorMessage = (error, fallback = "Request failed. Please try again.") => {
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+
+  if (error.code === "ERR_NETWORK") {
+    return "Backend is unreachable. Check VITE_API_URL and backend CORS settings in Vercel.";
+  }
+
+  if (error.message) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
 

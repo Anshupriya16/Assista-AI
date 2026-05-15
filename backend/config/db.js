@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 
 const connectDB = async () => {
   try {
+    if (mongoose.connection.readyState === 1) {
+      return true;
+    }
+
     const uri = process.env.MONGO_URI;
 
     if (!uri) {
@@ -14,7 +18,9 @@ const connectDB = async () => {
       );
     }
 
-    await mongoose.connect(uri);
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 10000,
+    });
     console.log("MongoDB connected");
     return true;
   } catch (err) {

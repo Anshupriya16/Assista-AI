@@ -11,6 +11,7 @@ dotenv.config();
 const app = express();
 const getEnv = (key) => String(process.env[key] || "").trim();
 const hasEnv = (key) => Boolean(getEnv(key));
+const normalizeOrigin = (origin) => String(origin || "").trim().replace(/\/$/, "");
 const maskValue = (value) => {
   const trimmed = String(value || "").trim();
   if (!trimmed) return "not set";
@@ -20,15 +21,20 @@ const maskValue = (value) => {
 const allowedOrigins = [
   ...getEnv("CLIENT_URL")
     .split(",")
-    .map((origin) => origin.trim())
+    .map(normalizeOrigin)
     .filter(Boolean),
   ...getEnv("CLIENT_URLS")
     .split(",")
-    .map((origin) => origin.trim())
+    .map(normalizeOrigin)
     .filter(Boolean),
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ];
+const vercelOriginPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
+const isOriginAllowed = (origin) => {
+  const normalized = normalizeOrigin(origin);
+  return allowedOrigins.includes(normalized) || vercelOriginPattern.test(normalized);
+};
 
 const dbReady = connectDB().then((connected) => {
   app.locals.dbConnected = connected;
@@ -38,7 +44,7 @@ const dbReady = connectDB().then((connected) => {
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || isOriginAllowed(origin)) {
         callback(null, true);
         return;
       }
@@ -56,6 +62,11 @@ app.get("/health", async (req, res) => {
   res.json({
     status: "ok",
     database: app.locals.dbConnected ? "connected" : "unavailable",
+    env: {
+      mongoUriConfigured: hasEnv("MONGO_URI"),
+      jwtSecretConfigured: hasEnv("JWT_SECRET"),
+      allowedOrigins,
+    },
     ai: {
       provider: getEnv("AI_PROVIDER") || "auto",
       geminiConfigured: hasEnv("GEMINI_API_KEY") || hasEnv("GOOGLE_API_KEY"),
@@ -85,7 +96,7 @@ app.get("/", (req, res) => {
 });
 
 app.use(async (req, res, next) => {
-  app.locals.dbConnected = await dbReady;
+  app.locals.dbConnected = (await dbReady) || (await connectDB());
   next();
 });
 
