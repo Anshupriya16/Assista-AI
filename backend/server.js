@@ -18,75 +18,94 @@ const maskValue = (value) => {
   return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)} (${trimmed.length} chars)`;
 };
 const allowedOrigins = [
-  process.env.CLIENT_URL,
+  ...getEnv("CLIENT_URL")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+  ...getEnv("CLIENT_URLS")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-].filter(Boolean);
+];
 
-const startServer = async () => {
+const dbReady = connectDB().then((connected) => {
+  app.locals.dbConnected = connected;
+  return connected;
+});
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    },
+  })
+);
+app.use(express.json());
+
+app.get("/health", async (req, res) => {
   const connected = await connectDB();
   app.locals.dbConnected = connected;
 
-  app.use(
-    cors({
-      origin(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-          callback(null, true);
-          return;
-        }
-
-        callback(new Error("Not allowed by CORS"));
-      },
-    })
-  );
-  app.use(express.json());
-
-  app.get("/health", (req, res) => {
-    res.json({
-      status: "ok",
-      database: app.locals.dbConnected ? "connected" : "unavailable",
-      ai: {
-        provider: getEnv("AI_PROVIDER") || "auto",
-        geminiConfigured: hasEnv("GEMINI_API_KEY") || hasEnv("GOOGLE_API_KEY"),
-        openaiConfigured: hasEnv("OPENAI_API_KEY"),
-        model: getEnv("GEMINI_MODEL") || getEnv("OPENAI_MODEL") || "local fallback",
-      },
-    });
+  res.json({
+    status: "ok",
+    database: app.locals.dbConnected ? "connected" : "unavailable",
+    ai: {
+      provider: getEnv("AI_PROVIDER") || "auto",
+      geminiConfigured: hasEnv("GEMINI_API_KEY") || hasEnv("GOOGLE_API_KEY"),
+      openaiConfigured: hasEnv("OPENAI_API_KEY"),
+      model: getEnv("GEMINI_MODEL") || getEnv("OPENAI_MODEL") || "local fallback",
+    },
   });
-  app.get("/", (req, res) => {
-    res.json({
-      message: "Assista AI API is running",
-      routes: {
-        health: "GET /health",
-        auth: ["POST /api/signup", "POST /api/login"],
-        profile: ["GET /api/profile", "PUT /api/profile"],
-        settings: ["GET /api/settings", "PUT /api/settings"],
-        chat: [
-          "POST /api/chat",
-          "GET /api/chat/history",
-          "GET /api/chat/conversations",
-          "GET /api/chat/conversations/:conversationId",
-          "DELETE /api/chat/history",
-        ],
-      },
-    });
-  });
+});
 
-  app.use("/", authRoutes);
-  app.use("/chat", chatRoutes);
-  app.use("/api", authRoutes);
-  app.use("/api/chat", chatRoutes);
-
-  app.use((req, res) => {
-    res.status(404).json({ message: "Route not found" });
+app.get("/", (req, res) => {
+  res.json({
+    message: "Assista AI API is running",
+    routes: {
+      health: "GET /health",
+      auth: ["POST /api/signup", "POST /api/login"],
+      profile: ["GET /api/profile", "PUT /api/profile"],
+      settings: ["GET /api/settings", "PUT /api/settings"],
+      chat: [
+        "POST /api/chat",
+        "GET /api/chat/history",
+        "GET /api/chat/conversations",
+        "GET /api/chat/conversations/:conversationId",
+        "DELETE /api/chat/history",
+      ],
+    },
   });
-  app.use((err, req, res, next) => {
-    console.error(err.message || err);
-    res.status(err.status || 500).json({
-      message: err.message || "Server error",
-    });
-  });
+});
 
+app.use(async (req, res, next) => {
+  app.locals.dbConnected = await dbReady;
+  next();
+});
+
+app.use("/", authRoutes);
+app.use("/chat", chatRoutes);
+app.use("/api", authRoutes);
+app.use("/api/chat", chatRoutes);
+
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.message || err);
+  res.status(err.status || 500).json({
+    message: err.message || "Server error",
+  });
+});
+
+if (process.env.VERCEL !== "1") {
   app.listen(process.env.PORT || 5000, () => {
     console.log(`Server running on ${process.env.PORT || 5000}`);
     console.log(
@@ -95,6 +114,6 @@ const startServer = async () => {
       )} | Model: ${getEnv("GEMINI_MODEL") || getEnv("OPENAI_MODEL") || "local fallback"}`
     );
   });
-};
+}
 
-startServer();
+export default app;
