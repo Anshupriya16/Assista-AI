@@ -1,8 +1,19 @@
 import axios from "axios";
 
-const API_BASE_URL = (
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:5000/api"
-).replace(/\/$/, "");
+const normalizeApiBaseUrl = (url) => {
+  const trimmed = String(url || "").trim().replace(/\/+$/, "");
+
+  if (!trimmed) return "http://127.0.0.1:5000/api";
+
+  const withoutEndpoint = trimmed.replace(
+    /\/(api\/)?(auth\/)?(signup|login|profile|settings|dashboard)$/i,
+    ""
+  );
+
+  return /\/api$/i.test(withoutEndpoint) ? withoutEndpoint : `${withoutEndpoint}/api`;
+};
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
 
 const API = axios.create({
   baseURL: API_BASE_URL,

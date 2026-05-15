@@ -106,6 +106,33 @@ app.get("/", (req, res) => {
   });
 });
 
+app.get("/api", (req, res) => {
+  res.json({
+    message: "Assista AI API is running",
+    routes: {
+      health: "GET /api/health",
+      signup: "POST /api/signup",
+      login: "POST /api/login",
+    },
+  });
+});
+
+app.get("/api/health", async (req, res) => {
+  const connected = await connectDB();
+  app.locals.dbConnected = connected;
+
+  res.json({
+    status: "ok",
+    database: app.locals.dbConnected ? "connected" : "unavailable",
+    env: {
+      mongoUriConfigured: hasEnv("MONGO_URI"),
+      jwtSecretConfigured: hasEnv("JWT_SECRET"),
+      configuredOrigins,
+      corsAllowAll: getEnv("CORS_ALLOW_ALL") === "true",
+    },
+  });
+});
+
 app.use(async (req, res, next) => {
   app.locals.dbConnected = (await dbReady) || (await connectDB());
   next();
